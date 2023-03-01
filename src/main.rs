@@ -2,6 +2,10 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
+use std::collections::HashMap;
+
+pub mod chunk;
+pub use chunk::Chunk;
 
 fn main() {
     App::new()
@@ -14,10 +18,8 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-const X_EXTENT: f32 = 14.5;
-
-#[derive(Clone, Copy)]
-enum Block {
+#[derive(Clone, Copy, Debug)]
+pub enum Block {
     Air,
     Grass,
 }
@@ -35,9 +37,9 @@ fn setup(
 
     let mesh = meshes.add(shape::Cube::default().into());
 
-    let blocks = [Block::Grass, Block::Air, Block::Grass];
+    let chunk = Chunk::filled(Block::Grass);
 
-    for (i, block) in blocks.iter().enumerate() {
+    for (pos, block) in chunk.iter() {
         match block {
             Block::Air => {}
             Block::Grass => {
@@ -45,11 +47,7 @@ fn setup(
                     PbrBundle {
                         mesh: mesh.clone(),
                         material: debug_material.clone(),
-                        transform: Transform::from_xyz(
-                            -X_EXTENT / 2. + i as f32 / (blocks.len() - 1) as f32 * X_EXTENT,
-                            2.0,
-                            0.0,
-                        ),
+                        transform: Transform::from_translation(pos),
                         ..default()
                     },
                     Shape,
