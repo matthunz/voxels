@@ -1,12 +1,12 @@
 use crate::BlockKind;
 use bevy::{
     prelude::{Mesh, Resource, Vec3},
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
+    render::{
+        mesh::{Indices, VertexAttributeValues},
+        render_resource::PrimitiveTopology,
+    },
 };
-use block_mesh::{
-    ndshape::{ConstShape, ConstShape3u32},
-    Axis, GreedyQuadsBuffer, MergeVoxel, Voxel, VoxelVisibility,
-};
+use block_mesh::{ndshape::ConstShape3u32, GreedyQuadsBuffer, MergeVoxel, Voxel, VoxelVisibility};
 
 const CHUNK_SIZE: usize = 4;
 const CHUNK_DEPTH: usize = 8;
@@ -62,8 +62,8 @@ impl Chunk {
             [0; 3],
             [
                 CHUNK_SIZE as u32 - 1,
-                CHUNK_DEPTH as u32 - 1,
                 CHUNK_SIZE as u32 - 1,
+                CHUNK_DEPTH as u32 - 1,
             ],
             &block_mesh::RIGHT_HANDED_Y_UP_CONFIG.faces,
             &mut buffer,
@@ -74,31 +74,33 @@ impl Chunk {
         let mut indices = Vec::with_capacity(num_indices);
         let mut positions = Vec::with_capacity(num_vertices);
         let mut normals = Vec::with_capacity(num_vertices);
-        let mut uvs = Vec::with_capacity(num_vertices);
-
-        for (block_face_normal_index, (group, face)) in buffer
+        for (group, face) in buffer
             .quads
             .groups
-            .as_ref()
             .into_iter()
             .zip(block_mesh::RIGHT_HANDED_Y_UP_CONFIG.faces)
-            .enumerate()
         {
             for quad in group.into_iter() {
                 indices.extend_from_slice(&face.quad_mesh_indices(positions.len() as u32));
-                positions.extend_from_slice(&face.quad_mesh_positions(&quad, 1.));
+                positions.extend_from_slice(&face.quad_mesh_positions(&quad, 1.0));
                 normals.extend_from_slice(&face.quad_mesh_normals());
-                uvs.extend_from_slice(&face.tex_coords(Axis::Y, false, quad));
             }
         }
 
-        dbg!(positions.len(), normals.len(), indices.len());
-
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-        mesh.set_indices(Some(Indices::U32(indices)));
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_POSITION,
+            VertexAttributeValues::Float32x3(positions),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_NORMAL,
+            VertexAttributeValues::Float32x3(normals),
+        );
+        mesh.insert_attribute(
+            Mesh::ATTRIBUTE_UV_0,
+            VertexAttributeValues::Float32x2(vec![[0.0; 2]; num_vertices]),
+        );
+        mesh.set_indices(Some(Indices::U32(indices.clone())));
         mesh
     }
 }
@@ -175,4 +177,4 @@ impl MergeVoxel for BlockKind {
 
 // A 16^3 chunk with 1-voxel boundary padding.
 type ChunkShape =
-    ConstShape3u32<{ CHUNK_SIZE as u32 }, { CHUNK_DEPTH as u32 }, { CHUNK_SIZE as u32 }>;
+    ConstShape3u32<{ CHUNK_SIZE as u32 }, { CHUNK_SIZE as u32 }, { CHUNK_DEPTH as u32 }>;

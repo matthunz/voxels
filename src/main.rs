@@ -6,8 +6,11 @@ use bevy::{
 use voxel::{player, BlockKind, Chunk, Selection};
 
 fn main() {
+    let mut chunk = Chunk::filled(BlockKind::Air);
+    *chunk.block_mut(Vec3::new(2., 2., 2.)).unwrap() = BlockKind::Grass;
+
     App::new()
-        .insert_resource(Chunk::filled(BlockKind::Grass))
+        .insert_resource(chunk)
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(WireframePlugin)
         .add_plugin(player::PlayerPlugin)
@@ -22,7 +25,7 @@ struct Shape;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
+    _images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut wireframe_config: ResMut<WireframeConfig>,
     chunk: Res<Chunk>,
