@@ -1,7 +1,7 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
 use std::f32::consts::FRAC_PI_2;
 
-use crate::{chunk::Block, BlockKind, Chunk};
+use crate::{chunk::Block, BlockKind, Chunk, Selection};
 
 // Reusing the player controller impl for now.
 
@@ -15,11 +15,12 @@ pub struct PlayerController {
 }
 
 pub fn handle_player_mouse_move(
-    mut query: Query<(&mut PlayerController, &mut Transform)>,
+    mut player_query: Query<(&mut PlayerController, &mut Transform)>,
+    mut selection_query: Query<(&mut Transform, With<Selection>, Without<PlayerController>)>,
     mut mouse_motion_event_reader: EventReader<MouseMotion>,
     mut window: ResMut<Windows>,
 ) {
-    let (mut controller, mut transform) = query.single_mut();
+    let (mut controller, mut transform) = player_query.single_mut();
     let mut delta = Vec2::ZERO;
 
     if controller.cursor_locked {
@@ -51,8 +52,10 @@ pub fn handle_player_mouse_move(
     transform.rotation =
         Quat::from_axis_angle(Vec3::Y, new_yaw) * Quat::from_axis_angle(-Vec3::X, new_pitch);
 
-    let block = raycast(&Chunk::filled(BlockKind::Grass), 10., &transform);
-    dbg!(block);
+    if let Some(block) = raycast(&Chunk::filled(BlockKind::Grass), 10., &transform) {
+        let (mut transform, (), ()) = selection_query.single_mut();
+        transform.translation = block.position;
+    }
 }
 
 pub fn handle_player_input(
@@ -120,21 +123,16 @@ impl Plugin for PlayerPlugin {
 }
 
 fn raycast(chunk: &Chunk, max_length: f32, transform: &Transform) -> Option<Block> {
-    let direction = transform.forward();
-
+    let direction = transform.forward().normalize();
     let origin = transform.translation;
+    let step_size = 0.1;
 
     let mut current_pos = origin;
-    loop {
+    while origin.distance_squared(current_pos) <= max_length.powi(2) {
         if let Some(block) = chunk.block(current_pos) {
             return Some(block);
         }
-
-        current_pos += direction;
-        if (current_pos - origin).length() > max_length {
-            break;
-        }
+        current_pos += direction * step_size;
     }
-
     None
 }

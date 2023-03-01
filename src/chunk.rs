@@ -1,7 +1,6 @@
 use crate::BlockKind;
-use bevy::prelude::Vec3;
+use bevy::prelude::{Resource, Vec3};
 
-const BLOCK_SIZE: usize = 2;
 const CHUNK_SIZE: usize = 4;
 const CHUNK_DEPTH: usize = 8;
 const CHUNK_BLOCKS_LEN: usize = CHUNK_SIZE.pow(2) * CHUNK_DEPTH;
@@ -13,6 +12,7 @@ pub struct Block {
     pub index: usize,
 }
 
+#[derive(Resource)]
 pub struct Chunk {
     blocks: [BlockKind; CHUNK_BLOCKS_LEN],
 }
@@ -54,12 +54,11 @@ fn block_index(position: Vec3) -> Option<(Vec3, usize)> {
     }
 
     let rounded = position.round();
+    let x = rounded.x as usize;
+    let y = rounded.y as usize;
+    let z = rounded.z as usize;
 
-    let x = position.x as usize;
-    let y = position.y as usize;
-    let z = position.z as usize;
-
-    if x < CHUNK_SIZE || z < CHUNK_SIZE || y < CHUNK_DEPTH {
+    if x < CHUNK_SIZE && z < CHUNK_SIZE && y < CHUNK_DEPTH {
         let idx = x + y * CHUNK_SIZE + z * CHUNK_DEPTH;
         Some((rounded, idx))
     } else {
@@ -89,12 +88,12 @@ impl Iterator for Iter<'_> {
 
             if self.z == CHUNK_SIZE - 1 {
                 self.z = 0;
-                self.y += BLOCK_SIZE;
+                self.y += 1;
             } else {
-                self.z += BLOCK_SIZE;
+                self.z += 1;
             }
         } else {
-            self.x += BLOCK_SIZE;
+            self.x += 1;
         }
 
         self.chunk.block(pos)

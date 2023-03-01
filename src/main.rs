@@ -20,6 +20,9 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
+#[derive(Component)]
+pub struct Selection;
+
 #[derive(Clone, Copy, Debug)]
 pub enum BlockKind {
     Air,
@@ -36,9 +39,7 @@ fn setup(
         base_color_texture: Some(images.add(uv_debug_texture())),
         ..default()
     });
-
     let mesh = meshes.add(shape::Cube::default().into());
-
     let chunk = Chunk::filled(BlockKind::Grass);
 
     for block in chunk.iter() {
@@ -57,6 +58,18 @@ fn setup(
             }
         }
     }
+
+    let selection_mesh = meshes.add(shape::Cube::new(1.1).into());
+    let selection_material = materials.add(StandardMaterial::from(Color::RED));
+    commands.spawn((
+        PbrBundle {
+            mesh: selection_mesh,
+            material: selection_material,
+            transform: Transform::from_xyz(0., 1., 0.),
+            ..default()
+        },
+        Selection,
+    ));
 
     commands.spawn(PointLightBundle {
         point_light: PointLight {
@@ -111,4 +124,10 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     )
+}
+
+fn rotate(mut query: Query<&mut Transform, With<Selection>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_seconds() / 2.);
+    }
 }
