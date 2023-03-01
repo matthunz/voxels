@@ -1,4 +1,5 @@
 use bevy::{
+    pbr::wireframe::{WireframeConfig, WireframePlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
@@ -8,6 +9,7 @@ fn main() {
     App::new()
         .insert_resource(Chunk::filled(BlockKind::Grass))
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugin(WireframePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_startup_system(setup)
         .run();
@@ -22,12 +24,32 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut wireframe_config: ResMut<WireframeConfig>,
     chunk: Res<Chunk>,
 ) {
-    let debug_material = materials.add(StandardMaterial {
-        base_color_texture: Some(images.add(uv_debug_texture())),
-        ..default()
-    });
+    wireframe_config.global = true;
+
+    /*
+       let debug_material = materials.add(StandardMaterial {
+           base_color_texture: Some(images.add(uv_debug_texture())),
+           ..default()
+       });
+    */
+
+    let debug_material = materials.add(StandardMaterial::from(Color::BLUE));
+
+    let mesh = meshes.add(chunk.mesh());
+    commands.spawn((
+        PbrBundle {
+            mesh: mesh,
+            material: debug_material,
+            transform: Transform::from_xyz(0., 1., 0.),
+            ..default()
+        },
+        Shape,
+    ));
+
+    /*
     let mesh = meshes.add(shape::Cube::default().into());
 
     for block in chunk.iter() {
@@ -46,6 +68,7 @@ fn setup(
             }
         }
     }
+    */
 
     let selection_mesh = meshes.add(shape::Cube::new(1.1).into());
     let selection_material = materials.add(StandardMaterial::from(Color::RED));

@@ -5,7 +5,7 @@ pub use chunk::Chunk;
 
 pub mod player;
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BlockKind {
     Air,
     Grass,
