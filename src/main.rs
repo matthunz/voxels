@@ -21,7 +21,7 @@ fn main() {
 struct Shape;
 
 #[derive(Clone, Copy, Debug)]
-pub enum Block {
+pub enum BlockKind {
     Air,
     Grass,
 }
@@ -39,17 +39,17 @@ fn setup(
 
     let mesh = meshes.add(shape::Cube::default().into());
 
-    let chunk = Chunk::filled(Block::Grass);
+    let chunk = Chunk::filled(BlockKind::Grass);
 
-    for (pos, block) in chunk.iter() {
-        match block {
-            Block::Air => {}
-            Block::Grass => {
+    for block in chunk.iter() {
+        match block.kind {
+            BlockKind::Air => {}
+            BlockKind::Grass => {
                 commands.spawn((
                     PbrBundle {
                         mesh: mesh.clone(),
                         material: debug_material.clone(),
-                        transform: Transform::from_translation(pos),
+                        transform: Transform::from_translation(block.position),
                         ..default()
                     },
                     Shape,

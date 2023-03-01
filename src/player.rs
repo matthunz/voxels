@@ -1,6 +1,8 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
 use std::f32::consts::FRAC_PI_2;
 
+use crate::{chunk::Block, BlockKind, Chunk};
+
 // Reusing the player controller impl for now.
 
 pub const DEFAULT_CAMERA_SENS: f32 = 0.005;
@@ -48,6 +50,9 @@ pub fn handle_player_mouse_move(
 
     transform.rotation =
         Quat::from_axis_angle(Vec3::Y, new_yaw) * Quat::from_axis_angle(-Vec3::X, new_pitch);
+
+    let block = raycast(&Chunk::filled(BlockKind::Grass), 10., &transform);
+    dbg!(block);
 }
 
 pub fn handle_player_input(
@@ -112,4 +117,24 @@ impl Plugin for PlayerPlugin {
         app.add_system(handle_player_mouse_move)
             .add_system(handle_player_input);
     }
+}
+
+fn raycast(chunk: &Chunk, max_length: f32, transform: &Transform) -> Option<Block> {
+    let direction = transform.forward();
+
+    let origin = transform.translation;
+
+    let mut current_pos = origin;
+    loop {
+        if let Some(block) = chunk.block(current_pos) {
+            return Some(block);
+        }
+
+        current_pos += direction;
+        if (current_pos - origin).length() > max_length {
+            break;
+        }
+    }
+
+    None
 }

@@ -1,28 +1,41 @@
+use crate::BlockKind;
 use bevy::prelude::Vec3;
 
-use crate::Block;
-
+const BLOCK_SIZE: usize = 2;
 const CHUNK_SIZE: usize = 4;
 const CHUNK_DEPTH: usize = 8;
 const CHUNK_BLOCKS_LEN: usize = CHUNK_SIZE.pow(2) * CHUNK_DEPTH;
 
+#[derive(Debug)]
+pub struct Block {
+    pub kind: BlockKind,
+    pub position: Vec3,
+    pub index: usize,
+}
+
 pub struct Chunk {
-    blocks: [Block; CHUNK_BLOCKS_LEN],
+    blocks: [BlockKind; CHUNK_BLOCKS_LEN],
 }
 
 impl Chunk {
-    pub const fn filled(block: Block) -> Self {
+    pub const fn filled(block: BlockKind) -> Self {
         Self {
             blocks: [block; CHUNK_BLOCKS_LEN],
         }
     }
 
     pub fn block(&self, position: Vec3) -> Option<Block> {
-        self.blocks.get(block_index(position)).copied()
+        block_index(position).and_then(|(position, index)| {
+            self.blocks.get(index).copied().map(|kind| Block {
+                kind,
+                position,
+                index,
+            })
+        })
     }
 
-    pub fn block_mut(&mut self, position: Vec3) -> Option<&mut Block> {
-        self.blocks.get_mut(block_index(position))
+    pub fn block_mut(&mut self, position: Vec3) -> Option<&mut BlockKind> {
+        block_index(position).and_then(|(_pos, idx)| self.blocks.get_mut(idx))
     }
 
     pub fn iter(&self) -> Iter<'_> {
@@ -35,10 +48,23 @@ impl Chunk {
     }
 }
 
-fn block_index(position: Vec3) -> usize {
-    position.x.round() as usize
-        + position.y.round() as usize * CHUNK_SIZE
-        + position.z.round() as usize * CHUNK_DEPTH
+fn block_index(position: Vec3) -> Option<(Vec3, usize)> {
+    if position.x < 0. || position.y < 0. || position.z < 0. {
+        return None;
+    }
+
+    let rounded = position.round();
+
+    let x = position.x as usize;
+    let y = position.y as usize;
+    let z = position.z as usize;
+
+    if x < CHUNK_SIZE || z < CHUNK_SIZE || y < CHUNK_DEPTH {
+        let idx = x + y * CHUNK_SIZE + z * CHUNK_DEPTH;
+        Some((rounded, idx))
+    } else {
+        None
+    }
 }
 
 pub struct Iter<'a> {
@@ -49,7 +75,7 @@ pub struct Iter<'a> {
 }
 
 impl Iterator for Iter<'_> {
-    type Item = (Vec3, Block);
+    type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.y == CHUNK_DEPTH - 1 {
@@ -63,14 +89,14 @@ impl Iterator for Iter<'_> {
 
             if self.z == CHUNK_SIZE - 1 {
                 self.z = 0;
-                self.y += 1;
+                self.y += BLOCK_SIZE;
             } else {
-                self.z += 1;
+                self.z += BLOCK_SIZE;
             }
         } else {
-            self.x += 1;
+            self.x += BLOCK_SIZE;
         }
 
-        Some((pos, self.chunk.block(pos).unwrap()))
+        self.chunk.block(pos)
     }
 }
