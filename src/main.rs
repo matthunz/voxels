@@ -3,17 +3,26 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-use voxel::{player, BlockKind, Chunk, Selection};
+use block_mesh::ndshape::ConstShape3u32;
+use voxel::{player, BlockKind, Selection};
+
+const CHUNK_SIZE: usize = 4;
+const CHUNK_DEPTH: usize = 8;
+
+type ChunkShape =
+    ConstShape3u32<{ CHUNK_SIZE as u32 }, { CHUNK_SIZE as u32 }, { CHUNK_DEPTH as u32 }>;
+
+type Chunk = voxel::chunk::Chunk<ChunkShape>;
 
 fn main() {
-    let mut chunk = Chunk::filled(BlockKind::Air);
+    let mut chunk = Chunk::filled(BlockKind::Air, ChunkShape {});
     *chunk.block_mut(Vec3::new(2., 2., 2.)).unwrap() = BlockKind::Grass;
 
     App::new()
         .insert_resource(chunk)
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(WireframePlugin)
-        .add_plugin(player::PlayerPlugin)
+        .add_plugin(player::PlayerPlugin::<ChunkShape>::default())
         .add_startup_system(setup)
         .run();
 }

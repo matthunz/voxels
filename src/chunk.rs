@@ -6,11 +6,7 @@ use bevy::{
         render_resource::PrimitiveTopology,
     },
 };
-use block_mesh::{ndshape::ConstShape3u32, GreedyQuadsBuffer, MergeVoxel, Voxel, VoxelVisibility};
-
-const CHUNK_SIZE: usize = 4;
-const CHUNK_DEPTH: usize = 8;
-const CHUNK_BLOCKS_LEN: usize = CHUNK_SIZE.pow(2) * CHUNK_DEPTH;
+use block_mesh::{ndshape::Shape, GreedyQuadsBuffer, MergeVoxel, Voxel, VoxelVisibility};
 
 #[derive(Debug)]
 pub struct Block {
@@ -20,19 +16,21 @@ pub struct Block {
 }
 
 #[derive(Resource)]
-pub struct Chunk {
-    pub blocks: [BlockKind; CHUNK_BLOCKS_LEN],
+pub struct Chunk<S> {
+    pub blocks: Box<[BlockKind]>,
+    pub shape: S,
 }
 
-impl Chunk {
-    pub const fn filled(block: BlockKind) -> Self {
+impl<S: Shape<3, Coord = u32>> Chunk<S> {
+    pub fn filled(block: BlockKind, shape: S) -> Self {
         Self {
-            blocks: [block; CHUNK_BLOCKS_LEN],
+            blocks: vec![block; shape.usize()].into_boxed_slice(),
+            shape,
         }
     }
 
     pub fn block(&self, position: Vec3) -> Option<Block> {
-        block_index(position).and_then(|(position, index)| {
+        block_index(&self.shape, position).and_then(|(position, index)| {
             self.blocks.get(index).copied().map(|kind| Block {
                 kind,
                 position,
@@ -42,10 +40,10 @@ impl Chunk {
     }
 
     pub fn block_mut(&mut self, position: Vec3) -> Option<&mut BlockKind> {
-        block_index(position).and_then(|(_pos, idx)| self.blocks.get_mut(idx))
+        block_index(&self.shape, position).and_then(|(_pos, idx)| self.blocks.get_mut(idx))
     }
 
-    pub fn iter(&self) -> Iter<'_> {
+    pub fn iter(&self) -> Iter<'_, S> {
         Iter {
             chunk: self,
             x: 0,
@@ -55,16 +53,14 @@ impl Chunk {
     }
 
     pub fn mesh(&self) -> Mesh {
+        let [x, y, z] = self.shape.as_array();
+
         let mut buffer = GreedyQuadsBuffer::new(self.blocks.len());
         block_mesh::greedy_quads(
             &self.blocks,
-            &ChunkShape {},
+            &self.shape,
             [0; 3],
-            [
-                CHUNK_SIZE as u32 - 1,
-                CHUNK_SIZE as u32 - 1,
-                CHUNK_DEPTH as u32 - 1,
-            ],
+            [x - 1, y - 1, z - 1],
             &block_mesh::RIGHT_HANDED_Y_UP_CONFIG.faces,
             &mut buffer,
         );
@@ -105,45 +101,55 @@ impl Chunk {
     }
 }
 
-fn block_index(position: Vec3) -> Option<(Vec3, usize)> {
+fn block_index<S>(shape: &S, position: Vec3) -> Option<(Vec3, usize)>
+where
+    S: Shape<3, Coord = u32>,
+{
+    let [x, y, z] = shape.as_array();
+
     if position.x < 0. || position.y < 0. || position.z < 0. {
         return None;
     }
 
     let rounded = position.round();
-    let x = rounded.x as usize;
-    let y = rounded.y as usize;
-    let z = rounded.z as usize;
+    let rounded_x = rounded.x as usize;
+    let rounded_y = rounded.y as usize;
+    let rounded_z = rounded.z as usize;
 
-    if x < CHUNK_SIZE && z < CHUNK_SIZE && y < CHUNK_DEPTH {
-        let idx = x + y * CHUNK_SIZE + z * CHUNK_DEPTH;
+    if rounded_x < x as usize && rounded_z < z as usize && rounded_y < y as usize {
+        let idx = rounded_x + rounded_y * y as usize + rounded_z * z as usize;
         Some((rounded, idx))
     } else {
         None
     }
 }
 
-pub struct Iter<'a> {
-    chunk: &'a Chunk,
+pub struct Iter<'a, S> {
+    chunk: &'a Chunk<S>,
     x: usize,
     y: usize,
     z: usize,
 }
 
-impl Iterator for Iter<'_> {
+impl<S> Iterator for Iter<'_, S>
+where
+    S: Shape<3, Coord = u32>,
+{
     type Item = Block;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.y == CHUNK_DEPTH - 1 {
+        let [x, y, z] = self.chunk.shape.as_array();
+
+        if self.y == y as usize {
             return None;
         }
 
         let pos = Vec3::new(self.x as _, self.y as _, self.z as _);
 
-        if self.x == CHUNK_SIZE - 1 {
+        if self.x == x as usize - 1 {
             self.x = 0;
 
-            if self.z == CHUNK_SIZE - 1 {
+            if self.z == z as usize - 1 {
                 self.z = 0;
                 self.y += 1;
             } else {
@@ -174,7 +180,3 @@ impl MergeVoxel for BlockKind {
         *self
     }
 }
-
-// A 16^3 chunk with 1-voxel boundary padding.
-type ChunkShape =
-    ConstShape3u32<{ CHUNK_SIZE as u32 }, { CHUNK_SIZE as u32 }, { CHUNK_DEPTH as u32 }>;

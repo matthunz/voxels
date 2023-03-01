@@ -4,7 +4,8 @@ use bevy::{
     prelude::*,
     window::CursorGrabMode,
 };
-use std::f32::consts::FRAC_PI_2;
+use block_mesh::ndshape::Shape;
+use std::{f32::consts::FRAC_PI_2, marker::PhantomData};
 
 pub const DEFAULT_CAMERA_SENS: f32 = 0.005;
 
@@ -16,12 +17,15 @@ pub struct PlayerController {
     looking_at: usize,
 }
 
-pub fn handle_player_mouse_move(
+pub fn handle_player_mouse_move<S>(
     mut player_query: Query<(&mut PlayerController, &mut Transform)>,
     mut selection_query: Query<(&mut Transform, With<Selection>, Without<PlayerController>)>,
     mut mouse_motion_event_reader: EventReader<MouseMotion>,
     mut window: ResMut<Windows>,
-) {
+    chunk: Res<Chunk<S>>,
+) where
+    S: Shape<3, Coord = u32> + Send + Sync + 'static,
+{
     let (mut controller, mut transform) = player_query.single_mut();
     let mut delta = Vec2::ZERO;
 
@@ -54,7 +58,7 @@ pub fn handle_player_mouse_move(
     transform.rotation =
         Quat::from_axis_angle(Vec3::Y, new_yaw) * Quat::from_axis_angle(-Vec3::X, new_pitch);
 
-    if let Some(block) = raycast(&Chunk::filled(BlockKind::Grass), 10., &transform) {
+    if let Some(block) = raycast(&chunk, 10., &transform) {
         let (mut transform, (), ()) = selection_query.single_mut();
         transform.translation = block.position;
 
@@ -117,11 +121,13 @@ pub fn handle_player_input(
         + direction.y * Vec3::Y * acceleration;
 }
 
-pub fn handle_player_click(
+pub fn handle_player_click<S>(
     query: Query<&PlayerController>,
     mouse_button_input_events: Res<Input<MouseButton>>,
-    mut chunk: ResMut<Chunk>,
-) {
+    mut chunk: ResMut<Chunk<S>>,
+) where
+    S: Shape<3, Coord = u32> + Send + Sync + 'static,
+{
     let player = query.single();
 
     if mouse_button_input_events.just_pressed(MouseButton::Left) {
@@ -133,18 +139,34 @@ pub fn handle_player_click(
     }
 }
 
-pub struct PlayerPlugin;
+pub struct PlayerPlugin<S> {
+    _marker: PhantomData<S>,
+}
 
-impl Plugin for PlayerPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_system(mouse_button_input_system)
-            .add_system(handle_player_mouse_move)
-            .add_system(handle_player_input)
-            .add_system(handle_player_click);
+impl<S> Default for PlayerPlugin<S> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
     }
 }
 
-fn raycast(chunk: &Chunk, max_length: f32, transform: &Transform) -> Option<Block> {
+impl<S> Plugin for PlayerPlugin<S>
+where
+    S: Shape<3, Coord = u32> + Send + Sync + 'static,
+{
+    fn build(&self, app: &mut App) {
+        app.add_system(mouse_button_input_system)
+            .add_system(handle_player_mouse_move::<S>)
+            .add_system(handle_player_input)
+            .add_system(handle_player_click::<S>);
+    }
+}
+
+fn raycast<S>(chunk: &Chunk<S>, max_length: f32, transform: &Transform) -> Option<Block>
+where
+    S: Shape<3, Coord = u32>,
+{
     let direction = transform.forward().normalize();
     let origin = transform.translation;
     let step_size = 0.1;
