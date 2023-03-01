@@ -2,14 +2,11 @@ use bevy::{
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
 };
-
-pub mod chunk;
-pub use chunk::Chunk;
-
-pub mod player;
+use voxel::{player, BlockKind, Chunk, Selection};
 
 fn main() {
     App::new()
+        .insert_resource(Chunk::filled(BlockKind::Grass))
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(player::PlayerPlugin)
         .add_startup_system(setup)
@@ -20,27 +17,18 @@ fn main() {
 #[derive(Component)]
 struct Shape;
 
-#[derive(Component)]
-pub struct Selection;
-
-#[derive(Clone, Copy, Debug)]
-pub enum BlockKind {
-    Air,
-    Grass,
-}
-
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    chunk: Res<Chunk>,
 ) {
     let debug_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
         ..default()
     });
     let mesh = meshes.add(shape::Cube::default().into());
-    let chunk = Chunk::filled(BlockKind::Grass);
 
     for block in chunk.iter() {
         match block.kind {
@@ -124,10 +112,4 @@ fn uv_debug_texture() -> Image {
         &texture_data,
         TextureFormat::Rgba8UnormSrgb,
     )
-}
-
-fn rotate(mut query: Query<&mut Transform, With<Selection>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_seconds() / 2.);
-    }
 }

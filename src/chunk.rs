@@ -14,7 +14,7 @@ pub struct Block {
 
 #[derive(Resource)]
 pub struct Chunk {
-    blocks: [BlockKind; CHUNK_BLOCKS_LEN],
+    pub blocks: [BlockKind; CHUNK_BLOCKS_LEN],
 }
 
 impl Chunk {

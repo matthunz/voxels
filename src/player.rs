@@ -1,9 +1,10 @@
-use bevy::{input::mouse::MouseMotion, prelude::*, window::CursorGrabMode};
-use std::f32::consts::FRAC_PI_2;
-
 use crate::{chunk::Block, BlockKind, Chunk, Selection};
-
-// Reusing the player controller impl for now.
+use bevy::{
+    input::mouse::{mouse_button_input_system, MouseMotion},
+    prelude::*,
+    window::CursorGrabMode,
+};
+use std::f32::consts::FRAC_PI_2;
 
 pub const DEFAULT_CAMERA_SENS: f32 = 0.005;
 
@@ -12,6 +13,7 @@ pub struct PlayerController {
     yaw: f32,
     pitch: f32,
     cursor_locked: bool,
+    looking_at: usize,
 }
 
 pub fn handle_player_mouse_move(
@@ -55,6 +57,8 @@ pub fn handle_player_mouse_move(
     if let Some(block) = raycast(&Chunk::filled(BlockKind::Grass), 10., &transform) {
         let (mut transform, (), ()) = selection_query.single_mut();
         transform.translation = block.position;
+
+        controller.looking_at = block.index;
     }
 }
 
@@ -113,12 +117,30 @@ pub fn handle_player_input(
         + direction.y * Vec3::Y * acceleration;
 }
 
+pub fn handle_player_click(
+    query: Query<&PlayerController>,
+    mouse_button_input_events: Res<Input<MouseButton>>,
+    mut chunk: ResMut<Chunk>,
+) {
+    let player = query.single();
+
+    if mouse_button_input_events.just_pressed(MouseButton::Left) {
+        chunk.blocks[player.looking_at] = BlockKind::Air;
+    }
+
+    if mouse_button_input_events.just_pressed(MouseButton::Right) {
+        chunk.blocks[player.looking_at] = BlockKind::Grass;
+    }
+}
+
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(handle_player_mouse_move)
-            .add_system(handle_player_input);
+        app.add_system(mouse_button_input_system)
+            .add_system(handle_player_mouse_move)
+            .add_system(handle_player_input)
+            .add_system(handle_player_click);
     }
 }
 
