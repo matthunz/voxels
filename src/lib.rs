@@ -1,15 +1,12 @@
 use bevy::prelude::Component;
 
+mod block;
+pub use block::{Block, BlockKind};
+
 pub mod chunk;
 pub use chunk::Chunk;
 
 pub mod player;
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum BlockKind {
-    Air,
-    Grass,
-}
 
 #[derive(Component)]
 pub struct Selection;

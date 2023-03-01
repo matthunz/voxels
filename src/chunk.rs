@@ -1,4 +1,4 @@
-use crate::BlockKind;
+use crate::{Block, BlockKind};
 use bevy::{
     prelude::{Mesh, Resource, Vec3},
     render::{
@@ -6,14 +6,7 @@ use bevy::{
         render_resource::PrimitiveTopology,
     },
 };
-use block_mesh::{ndshape::Shape, GreedyQuadsBuffer, MergeVoxel, Voxel, VoxelVisibility};
-
-#[derive(Debug)]
-pub struct Block {
-    pub kind: BlockKind,
-    pub position: Vec3,
-    pub index: usize,
-}
+use block_mesh::{ndshape::Shape, GreedyQuadsBuffer};
 
 #[derive(Resource)]
 pub struct Chunk<S> {
@@ -112,13 +105,13 @@ where
     }
 
     let rounded = position.round();
-    let rounded_x = rounded.x as usize;
-    let rounded_y = rounded.y as usize;
-    let rounded_z = rounded.z as usize;
 
-    if rounded_x < x as usize && rounded_z < z as usize && rounded_y < y as usize {
-        let idx = rounded_x + rounded_y * y as usize + rounded_z * z as usize;
-        Some((rounded, idx))
+    if (rounded.x as usize) < x as usize
+        && (rounded.z as usize) < z as usize
+        && (rounded.y as usize) < y as usize
+    {
+        let idx = shape.linearize([rounded.x as _, rounded.y as _, rounded.z as _]);
+        Some((rounded, idx as _))
     } else {
         None
     }
@@ -160,23 +153,5 @@ where
         }
 
         self.chunk.block(pos)
-    }
-}
-
-impl Voxel for BlockKind {
-    fn get_visibility(&self) -> VoxelVisibility {
-        if *self == BlockKind::Air {
-            VoxelVisibility::Empty
-        } else {
-            VoxelVisibility::Opaque
-        }
-    }
-}
-
-impl MergeVoxel for BlockKind {
-    type MergeValue = Self;
-
-    fn merge_value(&self) -> Self::MergeValue {
-        *self
     }
 }

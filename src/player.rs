@@ -1,4 +1,4 @@
-use crate::{chunk::Block, BlockKind, Chunk, Selection};
+use crate::{Block, BlockKind, Chunk, Selection};
 use bevy::{
     input::mouse::{mouse_button_input_system, MouseMotion},
     prelude::*,
